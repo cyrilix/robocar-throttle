@@ -1,0 +1,12 @@
+# github.com/cyrilix/robocar-base v0.0.0-20191227142243-e35d6f13814e
+github.com/cyrilix/robocar-base/cli
+github.com/cyrilix/robocar-base/mqttdevice
+github.com/cyrilix/robocar-base/testtools
+github.com/cyrilix/robocar-base/types
+# github.com/eclipse/paho.mqtt.golang v1.2.0
+github.com/eclipse/paho.mqtt.golang
+github.com/eclipse/paho.mqtt.golang/packets
+# golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
+golang.org/x/net/internal/socks
+golang.org/x/net/proxy
+golang.org/x/net/websocket

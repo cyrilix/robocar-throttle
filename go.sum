@@ -5,8 +5,8 @@ github.com/Microsoft/hcsshim v0.8.6/go.mod h1:Op3hHsoHPAvb6lceZHDtd9OkTew38wNoXn
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc/go.mod h1:GL3xCUCBDV3CZiTSEKksMWbLE66hEyuu9qyDOOqM47Y=
-github.com/cyrilix/robocar-base v0.0.0-20191227142243-e35d6f13814e h1:g7pMRmVOpaP71VcXE7JNQCjGp6/Wx3GKUASX8hhO4+Q=
-github.com/cyrilix/robocar-base v0.0.0-20191227142243-e35d6f13814e/go.mod h1:/KZidG8Y4sKxCCkTcswpKz20oFN3j62tJvamEHcSgLM=
+github.com/cyrilix/robocar-base v0.0.0-20191227154304-47d48c39b0a2 h1:7E0P2+YXKtRM++vnBZtaNVlhKEMkp+X3qYdd0CzseJY=
+github.com/cyrilix/robocar-base v0.0.0-20191227154304-47d48c39b0a2/go.mod h1:/KZidG8Y4sKxCCkTcswpKz20oFN3j62tJvamEHcSgLM=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/docker/distribution v2.7.1-0.20190205005809-0d3efadf0154+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker v0.7.3-0.20190506211059-b20a14b54661/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=

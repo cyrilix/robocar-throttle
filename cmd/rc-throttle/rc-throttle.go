@@ -16,7 +16,7 @@ const (
 
 func main() {
 	var mqttBroker, username, password, clientId string
-	var throttleTopic string
+	var throttleTopic, driveModeTopic, rcThrottleTopic string
 	var minThrottle, maxThrottle float64
 
 	err := cli.SetFloat64DefaultValueFromEnv(&minThrottle, "THROTTLE_MIN", DefaultThrottleMin)
@@ -34,6 +34,8 @@ func main() {
 	cli.InitMqttFlags(DefaultClientId, &mqttBroker, &username, &password, &clientId, &mqttQos, &mqttRetain)
 
 	flag.StringVar(&throttleTopic, "mqtt-topic-throttle", os.Getenv("MQTT_TOPIC_THROTTLE"), "Mqtt topic to publish throttle result, use MQTT_TOPIC_THROTTLE if args not set")
+	flag.StringVar(&driveModeTopic, "mqtt-topic-drive-mode", os.Getenv("MQTT_TOPIC_DRIVE_MODE"), "Mqtt topic that contains DriveMode value, use MQTT_TOPIC_DRIVE_MODE if args not set")
+	flag.StringVar(&rcThrottleTopic, "mqtt-topic-rc-throttle", os.Getenv("MQTT_TOPIC_RC_THROTTLE"), "Mqtt topic that contains RC Throttle value, use MQTT_TOPIC_RC_THROTTLE if args not set")
 	flag.Float64Var(&minThrottle, "throttle-min", minThrottle, "Minimum throttle value, use THROTTLE_MIN if args not set")
 	flag.Float64Var(&maxThrottle, "throttle-max", maxThrottle, "Minimum throttle value, use THROTTLE_MAX if args not set")
 
@@ -51,7 +53,7 @@ func main() {
 
 	pub := mqttdevice.NewPahoMqttPubSub(mqttBroker, username, password,clientId,mqttQos, mqttRetain)
 
-	p := part.NewPart(pub, throttleTopic, minThrottle, maxThrottle)
+	p := part.NewPart(client, pub, throttleTopic, driveModeTopic, rcThrottleTopic, minThrottle, maxThrottle, 2)
 	defer p.Stop()
 
 	cli.HandleExit(p)

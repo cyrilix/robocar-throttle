@@ -1,6 +1,7 @@
-# github.com/cyrilix/robocar-base v0.0.0-20191227142243-e35d6f13814e
+# github.com/cyrilix/robocar-base v0.0.0-20191227154304-47d48c39b0a2
 github.com/cyrilix/robocar-base/cli
 github.com/cyrilix/robocar-base/mqttdevice
+github.com/cyrilix/robocar-base/service
 github.com/cyrilix/robocar-base/testtools
 github.com/cyrilix/robocar-base/types
 # github.com/eclipse/paho.mqtt.golang v1.2.0

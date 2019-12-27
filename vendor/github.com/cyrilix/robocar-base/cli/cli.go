@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"fmt"
+	"github.com/cyrilix/robocar-base/service"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"os"
@@ -49,12 +50,7 @@ func SetFloat64DefaultValueFromEnv(value *float64, key string, defaultValue floa
 	return nil
 }
 
-type Part interface {
-	Start() error
-	Stop()
-}
-
-func HandleExit(p Part) {
+func HandleExit(p service.Part) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Kill, os.Interrupt, syscall.SIGTERM)
 

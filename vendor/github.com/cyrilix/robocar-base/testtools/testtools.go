@@ -3,6 +3,8 @@ package testtools
 import (
 	"github.com/cyrilix/robocar-base/mqttdevice"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/protobuf/proto"
+	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -70,4 +72,13 @@ func NewFakeMessage(topic string, payload []byte) mqtt.Message {
 		payload: payload,
 		acked:   false,
 	}
+}
+
+func NewFakeMessageFromProtobuf(topic string, msg proto.Message) mqtt.Message{
+	payload, err := proto.Marshal(msg)
+	if err  != nil {
+		log.Errorf("unable to marshal protobuf message %T: %v", msg, err)
+		return nil
+	}
+	return NewFakeMessage(topic, payload)
 }

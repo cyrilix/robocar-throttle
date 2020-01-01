@@ -1,27 +1,24 @@
 package part
 
 import (
-	"encoding/json"
-	"github.com/cyrilix/robocar-base/mqttdevice"
 	"github.com/cyrilix/robocar-base/service"
-	"github.com/cyrilix/robocar-base/types"
+	"github.com/cyrilix/robocar-protobuf/go/events"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
 
-func NewPart(client mqtt.Client, pub mqttdevice.Publisher, throttleTopic, driveModeTopic, rcThrottleTopic string,
-	minValue, maxValue float64, publishPilotFrequency int) *ThrottlePart {
+func NewPart(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic string, minValue, maxValue float32, publishPilotFrequency int) *ThrottlePart {
 	return &ThrottlePart{
 		client:                client,
-		pub:                   pub,
 		throttleTopic:         throttleTopic,
 		driveModeTopic:        driveModeTopic,
 		rcThrottleTopic:       rcThrottleTopic,
 		minThrottle:           minValue,
 		maxThrottle:           maxValue,
-		driveMode:             types.DriveModeUser,
+		driveMode:             events.DriveMode_USER,
 		publishPilotFrequency: publishPilotFrequency,
 	}
 
@@ -29,12 +26,11 @@ func NewPart(client mqtt.Client, pub mqttdevice.Publisher, throttleTopic, driveM
 
 type ThrottlePart struct {
 	client                   mqtt.Client
-	pub                      mqttdevice.Publisher
 	throttleTopic            string
-	minThrottle, maxThrottle float64
+	minThrottle, maxThrottle float32
 
 	muDriveMode sync.RWMutex
-	driveMode   types.DriveMode
+	driveMode   events.DriveMode
 
 	cancel                          chan interface{}
 	publishPilotFrequency           int
@@ -43,7 +39,7 @@ type ThrottlePart struct {
 
 func (p *ThrottlePart) Start() error {
 	if err := registerCallbacks(p); err != nil {
-		log.Printf("unable to rgeister callbacks: %v", err)
+		log.Infof("unable to rgeister callbacks: %v", err)
 		return err
 	}
 
@@ -63,14 +59,21 @@ func (p *ThrottlePart) publishPilotValue() {
 	p.muDriveMode.RLock()
 	defer p.muDriveMode.RUnlock()
 
-	if p.driveMode != types.DriveModePilot {
+	if p.driveMode != events.DriveMode_PILOT {
 		return
 	}
 
-	p.pub.Publish(p.throttleTopic, mqttdevice.NewMqttValue(types.Throttle{
-		Value:      p.minThrottle,
-		Confidence: 1.0,
-	}))
+	throttleMsg := events.ThrottleMessage{
+		Throttle:             p.minThrottle,
+		Confidence:           1.0,
+	}
+	payload, err := proto.Marshal(&throttleMsg)
+	if err != nil {
+		log.Errorf("unable to marshal %T protobuf content: %err", throttleMsg, err)
+		return
+	}
+
+	publish(p.client, p.throttleTopic, &payload)
 }
 
 func (p *ThrottlePart) Stop() {
@@ -79,26 +82,25 @@ func (p *ThrottlePart) Stop() {
 }
 
 func (p *ThrottlePart) onDriveMode(_ mqtt.Client, message mqtt.Message) {
-	m := types.ParseString(string(message.Payload()))
-
-	p.muDriveMode.Lock()
-	defer p.muDriveMode.Unlock()
-	p.driveMode = m
-}
-
-func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
-	payload := message.Payload()
-	var throttle types.Throttle
-	err := json.Unmarshal(payload, &throttle)
+	var msg events.DriveModeMessage
+	err := proto.Unmarshal(message.Payload(), &msg)
 	if err != nil {
-		log.Errorf("unable to parse throttle json: %v", err)
+		log.Errorf("unable to unmarshal protobuf %T message: %v", msg, err)
 		return
 	}
 
+	p.muDriveMode.Lock()
+	defer p.muDriveMode.Unlock()
+	p.driveMode = msg.GetDriveMode()
+}
+
+func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 	p.muDriveMode.RLock()
 	defer p.muDriveMode.RUnlock()
-	if p.driveMode == types.DriveModeUser {
-		p.pub.Publish(p.throttleTopic, mqttdevice.NewMqttValue(throttle))
+	if p.driveMode == events.DriveMode_USER {
+		// Republish same content
+		payload := message.Payload()
+		publish(p.client, p.throttleTopic, &payload)
 	}
 }
 
@@ -113,4 +115,8 @@ var registerCallbacks = func (p *ThrottlePart) error {
 		return err
 	}
 	return nil
+}
+
+var publish = func(client mqtt.Client, topic string, payload *[]byte) {
+	client.Publish(topic, 0, false, *payload)
 }

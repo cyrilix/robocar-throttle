@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"github.com/cyrilix/robocar-base/cli"
-	"github.com/cyrilix/robocar-base/mqttdevice"
 	"github.com/cyrilix/robocar-throttle/part"
 	"log"
 	"os"
@@ -51,9 +50,7 @@ func main() {
 	}
 	defer client.Disconnect(50)
 
-	pub := mqttdevice.NewPahoMqttPubSub(client, mqttQos, mqttRetain)
-
-	p := part.NewPart(client, pub, throttleTopic, driveModeTopic, rcThrottleTopic, minThrottle, maxThrottle, 2)
+	p := part.NewPart(client, throttleTopic, driveModeTopic, rcThrottleTopic, float32(minThrottle), float32(maxThrottle), 2)
 	defer p.Stop()
 
 	cli.HandleExit(p)

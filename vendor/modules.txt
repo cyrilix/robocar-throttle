@@ -1,4 +1,4 @@
-# github.com/cyrilix/robocar-base v0.0.0-20191227154304-47d48c39b0a2
+# github.com/cyrilix/robocar-base v0.0.0-20191231130515-a89a045e5c4f
 github.com/cyrilix/robocar-base/cli
 github.com/cyrilix/robocar-base/mqttdevice
 github.com/cyrilix/robocar-base/service
@@ -7,7 +7,16 @@ github.com/cyrilix/robocar-base/types
 # github.com/eclipse/paho.mqtt.golang v1.2.0
 github.com/eclipse/paho.mqtt.golang
 github.com/eclipse/paho.mqtt.golang/packets
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+github.com/konsorten/go-windows-terminal-sequences
+# github.com/sirupsen/logrus v1.2.0
+github.com/sirupsen/logrus
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
 golang.org/x/net/websocket
+# golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
+golang.org/x/sys/unix
+golang.org/x/sys/windows

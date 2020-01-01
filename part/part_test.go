@@ -28,16 +28,16 @@ func TestDefaultThrottle(t *testing.T) {
 	p := NewPart(nil, pub, throttleTopic, driveModeTopic, rcThrottleTopic, minValue, 1., 200)
 
 	cases := []struct {
-		driveMode        types.DriveMode
-		rcThrottle       float64
-		expectedThrottle float64
+		driveMode        string
+		rcThrottle       types.Throttle
+		expectedThrottle types.Throttle
 	}{
-		{types.DriveModeUser, 0.3, 0.3},
-		{types.DriveModePilot, 0.5, minValue},
-		{types.DriveModePilot, 0.4, minValue},
-		{types.DriveModeUser, 0.5, 0.5},
-		{types.DriveModeUser, 0.4, 0.4},
-		{types.DriveModeUser, 0.6, 0.6},
+		{types.ToString(types.DriveModeUser), types.Throttle{Value: 0.3, Confidence: 1.0},types.Throttle{Value: 0.3, Confidence: 1.0}},
+		{types.ToString(types.DriveModePilot), types.Throttle{Value: 0.5, Confidence: 1.0}, types.Throttle{Value: minValue, Confidence: 1.0}},
+		{types.ToString(types.DriveModePilot), types.Throttle{Value: 0.4, Confidence: 1.0}, types.Throttle{Value: minValue, Confidence: 1.0}},
+		{types.ToString(types.DriveModeUser), types.Throttle{Value: 0.5, Confidence: 1.0}, types.Throttle{Value: 0.5, Confidence: 1.0}},
+		{types.ToString(types.DriveModeUser), types.Throttle{Value: 0.4, Confidence: 1.0}, types.Throttle{Value: 0.4, Confidence: 1.0}},
+		{types.ToString(types.DriveModeUser), types.Throttle{Value: 0.6, Confidence: 1.0}, types.Throttle{Value: 0.6, Confidence: 1.0}},
 	}
 
 	go p.Start()
@@ -60,7 +60,7 @@ func TestDefaultThrottle(t *testing.T) {
 				t.Fail()
 			}
 
-			if throttle.Value != c.expectedThrottle {
+			if throttle != c.expectedThrottle {
 				t.Errorf("bad throttle value for mode %v: %v, wants %v", c.driveMode, throttle.Value, c.expectedThrottle)
 			}
 			if throttle.Confidence != 1. {

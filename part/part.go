@@ -1,11 +1,12 @@
 package part
 
 import (
+	"encoding/json"
 	"github.com/cyrilix/robocar-base/mqttdevice"
 	"github.com/cyrilix/robocar-base/service"
 	"github.com/cyrilix/robocar-base/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"sync"
 	"time"
 )
@@ -78,13 +79,7 @@ func (p *ThrottlePart) Stop() {
 }
 
 func (p *ThrottlePart) onDriveMode(_ mqtt.Client, message mqtt.Message) {
-	payload := message.Payload()
-	value := mqttdevice.NewMqttValue(payload)
-	m, err := value.DriveModeValue()
-	if err != nil {
-		log.Printf("invalid drive mode: %v", err)
-		return
-	}
+	m := types.ParseString(string(message.Payload()))
 
 	p.muDriveMode.Lock()
 	defer p.muDriveMode.Unlock()
@@ -93,17 +88,17 @@ func (p *ThrottlePart) onDriveMode(_ mqtt.Client, message mqtt.Message) {
 
 func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 	payload := message.Payload()
-	value := mqttdevice.NewMqttValue(payload)
-	val, err := value.Float64Value()
+	var throttle types.Throttle
+	err := json.Unmarshal(payload, &throttle)
 	if err != nil {
-		log.Printf("invalid throttle value from arduino: %v", err)
+		log.Errorf("unable to parse throttle json: %v", err)
 		return
 	}
 
 	p.muDriveMode.RLock()
 	defer p.muDriveMode.RUnlock()
 	if p.driveMode == types.DriveModeUser {
-		p.pub.Publish(p.throttleTopic, mqttdevice.NewMqttValue(types.Throttle{Value: val, Confidence: 1.0}))
+		p.pub.Publish(p.throttleTopic, mqttdevice.NewMqttValue(throttle))
 	}
 }
 

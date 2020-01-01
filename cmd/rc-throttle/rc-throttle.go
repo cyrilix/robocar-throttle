@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultClientId = "robocar-throttle"
+	DefaultClientId    = "robocar-throttle"
 	DefaultThrottleMin = 0.3
 )
 
@@ -51,7 +51,7 @@ func main() {
 	}
 	defer client.Disconnect(50)
 
-	pub := mqttdevice.NewPahoMqttPubSub(mqttBroker, username, password,clientId,mqttQos, mqttRetain)
+	pub := mqttdevice.NewPahoMqttPubSub(client, mqttQos, mqttRetain)
 
 	p := part.NewPart(client, pub, throttleTopic, driveModeTopic, rcThrottleTopic, minThrottle, maxThrottle, 2)
 	defer p.Stop()

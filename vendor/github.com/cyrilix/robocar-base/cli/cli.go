@@ -2,7 +2,7 @@ package cli
 
 import (
 	"flag"
-	"fmt"
+	"github.com/cyrilix/robocar-base/mqttdevice"
 	"github.com/cyrilix/robocar-base/service"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"log"
@@ -92,24 +92,5 @@ func InitFloat64Flag(key string, defValue float64) float64 {
 }
 
 func Connect(uri, username, password, clientId string) (MQTT.Client, error) {
-	//create a ClientOptions struct setting the broker address, clientid, turn
-	//off trace output and set the default message handler
-	opts := MQTT.NewClientOptions().AddBroker(uri)
-	opts.SetUsername(username)
-	opts.SetPassword(password)
-	opts.SetClientID(clientId)
-	opts.SetAutoReconnect(true)
-	opts.SetDefaultPublishHandler(
-		//define a function for the default message handler
-		func(client MQTT.Client, msg MQTT.Message) {
-			fmt.Printf("TOPIC: %s\n", msg.Topic())
-			fmt.Printf("MSG: %s\n", msg.Payload())
-		})
-
-	//create and start a client using the above ClientOptions
-	client := MQTT.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		return nil, fmt.Errorf("unable to connect to mqtt bus: %v", token.Error())
-	}
-	return client, nil
+	return mqttdevice.Connect(uri, username, password, clientId)
 }

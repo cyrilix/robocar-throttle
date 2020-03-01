@@ -2,7 +2,7 @@ package cli
 
 import (
 	"flag"
-	"github.com/cyrilix/robocar-base/mqttdevice"
+	"fmt"
 	"github.com/cyrilix/robocar-base/service"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"log"
@@ -61,16 +61,20 @@ func HandleExit(p service.Part) {
 	}()
 }
 
-func InitMqttFlags(defaultClientId string, mqttBroker, username, password, clientId *string, mqttQos *int, mqttRetain *bool) {
+func InitMqttFlagSet(flagSet *flag.FlagSet, defaultClientId string, mqttBroker, username, password, clientId *string, mqttQos *int, mqttRetain *bool) {
 	SetDefaultValueFromEnv(clientId, "MQTT_CLIENT_ID", defaultClientId)
 	SetDefaultValueFromEnv(mqttBroker, "MQTT_BROKER", "tcp://127.0.0.1:1883")
 
-	flag.StringVar(mqttBroker, "mqtt-broker", *mqttBroker, "Broker Uri, use MQTT_BROKER env if arg not set")
-	flag.StringVar(username, "mqtt-username", os.Getenv("MQTT_USERNAME"), "Broker Username, use MQTT_USERNAME env if arg not set")
-	flag.StringVar(password, "mqtt-password", os.Getenv("MQTT_PASSWORD"), "Broker Password, MQTT_PASSWORD env if args not set")
-	flag.StringVar(clientId, "mqtt-client-id", *clientId, "Mqtt client id, use MQTT_CLIENT_ID env if args not set")
-	flag.IntVar(mqttQos, "mqtt-qos", *mqttQos, "Qos to pusblish message, use MQTT_QOS env if arg not set")
-	flag.BoolVar(mqttRetain, "mqtt-retain", *mqttRetain, "Retain mqtt message, if not set, true if MQTT_RETAIN env variable is set")
+	flagSet.StringVar(mqttBroker, "mqtt-broker", *mqttBroker, "Broker Uri, use MQTT_BROKER env if arg not set")
+	flagSet.StringVar(username, "mqtt-username", os.Getenv("MQTT_USERNAME"), "Broker Username, use MQTT_USERNAME env if arg not set")
+	flagSet.StringVar(password, "mqtt-password", os.Getenv("MQTT_PASSWORD"), "Broker Password, MQTT_PASSWORD env if args not set")
+	flagSet.StringVar(clientId, "mqtt-client-id", *clientId, "Mqtt client id, use MQTT_CLIENT_ID env if args not set")
+	flagSet.IntVar(mqttQos, "mqtt-qos", *mqttQos, "Qos to pusblish message, use MQTT_QOS env if arg not set")
+	flagSet.BoolVar(mqttRetain, "mqtt-retain", *mqttRetain, "Retain mqtt message, if not set, true if MQTT_RETAIN env variable is set")
+}
+
+func InitMqttFlags(defaultClientId string, mqttBroker, username, password, clientId *string, mqttQos *int, mqttRetain *bool) {
+	InitMqttFlagSet(flag.CommandLine, defaultClientId, mqttBroker, username, password, clientId, mqttQos, mqttRetain)
 }
 
 func InitIntFlag(key string, defValue int) int {
@@ -92,5 +96,24 @@ func InitFloat64Flag(key string, defValue float64) float64 {
 }
 
 func Connect(uri, username, password, clientId string) (MQTT.Client, error) {
-	return mqttdevice.Connect(uri, username, password, clientId)
+	//create a ClientOptions struct setting the broker address, clientid, turn
+	//off trace output and set the default message handler
+	opts := MQTT.NewClientOptions().AddBroker(uri)
+	opts.SetUsername(username)
+	opts.SetPassword(password)
+	opts.SetClientID(clientId)
+	opts.SetAutoReconnect(true)
+	opts.SetDefaultPublishHandler(
+		//define a function for the default message handler
+		func(client MQTT.Client, msg MQTT.Message) {
+			fmt.Printf("TOPIC: %s\n", msg.Topic())
+			fmt.Printf("MSG: %s\n", msg.Payload())
+		})
+
+	//create and start a client using the above ClientOptions
+	client := MQTT.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		return nil, fmt.Errorf("unable to connect to mqtt bus: %v", token.Error())
+	}
+	return client, nil
 }

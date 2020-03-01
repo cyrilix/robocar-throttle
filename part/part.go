@@ -48,14 +48,14 @@ func (p *ThrottlePart) Start() error {
 	for {
 		select {
 		case <-ticker.C:
-			p.publishPilotValue()
+			p.onPublishPilotValue()
 		case <-p.cancel:
 			break
 		}
 	}
 }
 
-func (p *ThrottlePart) publishPilotValue() {
+func (p *ThrottlePart) onPublishPilotValue() {
 	p.muDriveMode.RLock()
 	defer p.muDriveMode.RUnlock()
 
@@ -64,8 +64,8 @@ func (p *ThrottlePart) publishPilotValue() {
 	}
 
 	throttleMsg := events.ThrottleMessage{
-		Throttle:             p.minThrottle,
-		Confidence:           1.0,
+		Throttle:   p.minThrottle,
+		Confidence: 1.0,
 	}
 	payload, err := proto.Marshal(&throttleMsg)
 	if err != nil {
@@ -104,7 +104,7 @@ func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 	}
 }
 
-var registerCallbacks = func (p *ThrottlePart) error {
+var registerCallbacks = func(p *ThrottlePart) error {
 	err := service.RegisterCallback(p.client, p.driveModeTopic, p.onDriveMode)
 	if err != nil {
 		return err

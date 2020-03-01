@@ -1,34 +1,10 @@
 package testtools
 
 import (
-	"github.com/cyrilix/robocar-base/mqttdevice"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
-	"sync"
 )
-
-
-func NewFakePublisher() *FakePublisher {
-	return &FakePublisher{msg: make(map[string]mqttdevice.MqttValue)}
-}
-
-type FakePublisher struct {
-	muMsg sync.Mutex
-	msg   map[string]mqttdevice.MqttValue
-}
-
-func (f *FakePublisher) Publish(topic string, payload mqttdevice.MqttValue) {
-	f.muMsg.Lock()
-	defer f.muMsg.Unlock()
-	f.msg[topic] = payload
-}
-
-func (f *FakePublisher) PublishedEvent(topic string) mqttdevice.MqttValue {
-	f.muMsg.Lock()
-	defer f.muMsg.Unlock()
-	return f.msg[topic]
-}
 
 type fakeMessage struct {
 	qos     byte

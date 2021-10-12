@@ -5,7 +5,7 @@ import (
 	"github.com/cyrilix/robocar-protobuf/go/events"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golang/protobuf/proto"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"sync"
 	"time"
 )
@@ -39,7 +39,7 @@ type ThrottlePart struct {
 
 func (p *ThrottlePart) Start() error {
 	if err := registerCallbacks(p); err != nil {
-		log.Infof("unable to rgeister callbacks: %v", err)
+		zap.S().Errorf("unable to register callbacks: %v", err)
 		return err
 	}
 
@@ -69,7 +69,7 @@ func (p *ThrottlePart) onPublishPilotValue() {
 	}
 	payload, err := proto.Marshal(&throttleMsg)
 	if err != nil {
-		log.Errorf("unable to marshal %T protobuf content: %err", throttleMsg, err)
+		zap.S().Errorf("unable to marshal %T protobuf content: %err", throttleMsg, err)
 		return
 	}
 
@@ -85,7 +85,7 @@ func (p *ThrottlePart) onDriveMode(_ mqtt.Client, message mqtt.Message) {
 	var msg events.DriveModeMessage
 	err := proto.Unmarshal(message.Payload(), &msg)
 	if err != nil {
-		log.Errorf("unable to unmarshal protobuf %T message: %v", msg, err)
+		zap.S().Errorf("unable to unmarshal protobuf %T message: %v", msg, err)
 		return
 	}
 

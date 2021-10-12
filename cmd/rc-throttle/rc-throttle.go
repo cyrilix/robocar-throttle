@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/cyrilix/robocar-base/cli"
 	"github.com/cyrilix/robocar-throttle/part"
+	"go.uber.org/zap"
 	"log"
 	"os"
 )
@@ -17,14 +18,15 @@ func main() {
 	var mqttBroker, username, password, clientId string
 	var throttleTopic, driveModeTopic, rcThrottleTopic string
 	var minThrottle, maxThrottle float64
+	var debug bool
 
 	err := cli.SetFloat64DefaultValueFromEnv(&minThrottle, "THROTTLE_MIN", DefaultThrottleMin)
 	if err != nil {
-		log.Printf("unable to parse min throttle value arg: %v", err)
+		zap.S().Errorf("unable to parse min throttle value arg: %v", err)
 	}
 	err = cli.SetFloat64DefaultValueFromEnv(&maxThrottle, "THROTTLE_MAX", minThrottle)
 	if err != nil {
-		log.Printf("unable to parse max throttle value arg: %v", err)
+		zap.S().Errorf("unable to parse max throttle value arg: %v", err)
 	}
 
 	mqttQos := cli.InitIntFlag("MQTT_QOS", 0)
@@ -37,6 +39,7 @@ func main() {
 	flag.StringVar(&rcThrottleTopic, "mqtt-topic-rc-throttle", os.Getenv("MQTT_TOPIC_RC_THROTTLE"), "Mqtt topic that contains RC Throttle value, use MQTT_TOPIC_RC_THROTTLE if args not set")
 	flag.Float64Var(&minThrottle, "throttle-min", minThrottle, "Minimum throttle value, use THROTTLE_MIN if args not set")
 	flag.Float64Var(&maxThrottle, "throttle-max", maxThrottle, "Minimum throttle value, use THROTTLE_MAX if args not set")
+	flag.BoolVar(&debug, "debug", false, "Display raw value to debug")
 
 	flag.Parse()
 	if len(os.Args) <= 1 {
@@ -44,9 +47,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	config := zap.NewDevelopmentConfig()
+	if debug {
+		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	} else {
+		config.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+	}
+	lgr, err := config.Build()
+	if err != nil {
+		log.Fatalf("unable to init logger: %v", err)
+	}
+	defer func() {
+		if err := lgr.Sync(); err != nil {
+			log.Printf("unable to Sync logger: %v\n", err)
+		}
+	}()
+	zap.ReplaceGlobals(lgr)
+
 	client, err := cli.Connect(mqttBroker, username, password, clientId)
 	if err != nil {
-		log.Fatalf("unable to connect to mqtt bus: %v", err)
+		zap.S().Fatalf("unable to connect to mqtt bus: %v", err)
 	}
 	defer client.Disconnect(50)
 
@@ -57,6 +77,6 @@ func main() {
 
 	err = p.Start()
 	if err != nil {
-		log.Fatalf("unable to start service: %v", err)
+		zap.S().Fatalf("unable to start service: %v", err)
 	}
 }

@@ -4,8 +4,8 @@ import (
 	"github.com/cyrilix/robocar-base/service"
 	"github.com/cyrilix/robocar-protobuf/go/events"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/golang/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 	"sync"
 	"time"
 )
@@ -98,6 +98,7 @@ func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 	p.muDriveMode.RLock()
 	defer p.muDriveMode.RUnlock()
 	if p.driveMode == events.DriveMode_USER {
+		zap.S().Debug("publish new throttle value from rc")
 		// Republish same content
 		payload := message.Payload()
 		publish(p.client, p.throttleTopic, &payload)

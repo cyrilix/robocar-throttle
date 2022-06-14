@@ -38,47 +38,52 @@ func TestDefaultThrottle(t *testing.T) {
 	p := NewPart(nil, throttleTopic, driveModeTopic, rcThrottleTopic, minValue, 1., 200)
 
 	cases := []struct {
+		name             string
+		maxThrottle      float32
 		driveMode        events.DriveModeMessage
 		rcThrottle       events.ThrottleMessage
 		expectedThrottle events.ThrottleMessage
 	}{
-		{events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0}},
-		{events.DriveModeMessage{DriveMode: events.DriveMode_PILOT}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: minValue, Confidence: 1.0}},
-		{events.DriveModeMessage{DriveMode: events.DriveMode_PILOT}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: minValue, Confidence: 1.0}},
-		{events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}},
-		{events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
-		{events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}},
+		{"test1", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0}},
+		{"test2", 1., events.DriveModeMessage{DriveMode: events.DriveMode_PILOT}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: minValue, Confidence: 1.0}},
+		{"test3", 1., events.DriveModeMessage{DriveMode: events.DriveMode_PILOT}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: minValue, Confidence: 1.0}},
+		{"test4", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}},
+		{"test5", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
+		{"test6", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}},
+		{"limit max throttle on user mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
 	}
 
 	go p.Start()
 	defer func() { close(p.cancel) }()
 
 	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p.maxThrottle = c.maxThrottle
+			p.onDriveMode(nil, testtools.NewFakeMessageFromProtobuf(driveModeTopic, &c.driveMode))
+			p.onRCThrottle(nil, testtools.NewFakeMessageFromProtobuf(rcThrottleTopic, &c.rcThrottle))
 
-		p.onDriveMode(nil, testtools.NewFakeMessageFromProtobuf(driveModeTopic, &c.driveMode))
-		p.onRCThrottle(nil, testtools.NewFakeMessageFromProtobuf(rcThrottleTopic, &c.rcThrottle))
+			time.Sleep(10 * time.Millisecond)
 
-		time.Sleep(10 * time.Millisecond)
+			for i := 3; i >= 0; i-- {
 
-		for i := 3; i >= 0; i-- {
+				var msg events.ThrottleMessage
+				muEventsPublished.Lock()
+				err := proto.Unmarshal(eventsPublished[throttleTopic], &msg)
+				if err != nil {
+					t.Errorf("unable to unmarshall response: %v", err)
+					t.Fail()
+				}
+				muEventsPublished.Unlock()
 
-			var msg events.ThrottleMessage
-			muEventsPublished.Lock()
-			err := proto.Unmarshal(eventsPublished[throttleTopic], &msg)
-			if err != nil {
-				t.Errorf("unable to unmarshall response: %v", err)
-				t.Fail()
+				if msg.GetThrottle() != c.expectedThrottle.GetThrottle() {
+					t.Errorf("bad msg value for mode %v: %v, wants %v", c.driveMode, msg.GetThrottle(), c.expectedThrottle.GetThrottle())
+				}
+				if msg.GetConfidence() != 1. {
+					t.Errorf("bad throtlle confidence: %v, wants %v", msg.GetConfidence(), 1.)
+				}
+
+				time.Sleep(1 * time.Millisecond)
 			}
-			muEventsPublished.Unlock()
-
-			if msg.GetThrottle() != c.expectedThrottle.GetThrottle() {
-				t.Errorf("bad msg value for mode %v: %v, wants %v", c.driveMode, msg.GetThrottle(), c.expectedThrottle.GetThrottle())
-			}
-			if msg.GetConfidence() != 1. {
-				t.Errorf("bad throtlle confidence: %v, wants %v", msg.GetConfidence(), 1.)
-			}
-
-			time.Sleep(1 * time.Millisecond)
-		}
+		})
 	}
 }

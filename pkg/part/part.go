@@ -101,6 +101,21 @@ func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 		zap.S().Debug("publish new throttle value from rc")
 		// Republish same content
 		payload := message.Payload()
+		var throttleMsg events.ThrottleMessage
+		err := proto.Unmarshal(payload, &throttleMsg)
+		if err != nil {
+			zap.S().Errorf("unable to unmarshall throttle msg to check throttle value: %v", err)
+			return
+		}
+		if throttleMsg.GetThrottle() > p.maxThrottle {
+			zap.S().Debug("throttle upper that max value allowed, patch value from %v to %v", throttleMsg.GetThrottle(), p.maxThrottle)
+			throttleMsg.Throttle = p.maxThrottle
+			payload, err = proto.Marshal(&throttleMsg)
+			if err != nil {
+				zap.S().Errorf("unable to marshall throttle msg: %v", err)
+				return
+			}
+		}
 		publish(p.client, p.throttleTopic, &payload)
 	}
 }

@@ -98,7 +98,6 @@ func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 	p.muDriveMode.RLock()
 	defer p.muDriveMode.RUnlock()
 	if p.driveMode == events.DriveMode_USER {
-		zap.S().Debug("publish new throttle value from rc")
 		// Republish same content
 		payload := message.Payload()
 		var throttleMsg events.ThrottleMessage
@@ -107,14 +106,17 @@ func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 			zap.S().Errorf("unable to unmarshall throttle msg to check throttle value: %v", err)
 			return
 		}
+		zap.S().Debugf("publish new throttle value from rc: %v", throttleMsg.GetThrottle())
 		if throttleMsg.GetThrottle() > p.maxThrottle {
-			zap.S().Debug("throttle upper that max value allowed, patch value from %v to %v", throttleMsg.GetThrottle(), p.maxThrottle)
+			zap.S().Debugf("throttle upper that max value allowed, patch value from %v to %v", throttleMsg.GetThrottle(), p.maxThrottle)
 			throttleMsg.Throttle = p.maxThrottle
-			payload, err = proto.Marshal(&throttleMsg)
+			payloadPatched, err := proto.Marshal(&throttleMsg)
 			if err != nil {
 				zap.S().Errorf("unable to marshall throttle msg: %v", err)
 				return
 			}
+			publish(p.client, p.throttleTopic, &payloadPatched)
+			return
 		}
 		publish(p.client, p.throttleTopic, &payload)
 	}

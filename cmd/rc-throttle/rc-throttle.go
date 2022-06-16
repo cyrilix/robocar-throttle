@@ -18,7 +18,6 @@ func main() {
 	var mqttBroker, username, password, clientId string
 	var throttleTopic, driveModeTopic, rcThrottleTopic string
 	var minThrottle, maxThrottle float64
-	var debug bool
 
 	err := cli.SetFloat64DefaultValueFromEnv(&minThrottle, "THROTTLE_MIN", DefaultThrottleMin)
 	if err != nil {
@@ -39,7 +38,7 @@ func main() {
 	flag.StringVar(&rcThrottleTopic, "mqtt-topic-rc-throttle", os.Getenv("MQTT_TOPIC_RC_THROTTLE"), "Mqtt topic that contains RC Throttle value, use MQTT_TOPIC_RC_THROTTLE if args not set")
 	flag.Float64Var(&minThrottle, "throttle-min", minThrottle, "Minimum throttle value, use THROTTLE_MIN if args not set")
 	flag.Float64Var(&maxThrottle, "throttle-max", maxThrottle, "Minimum throttle value, use THROTTLE_MAX if args not set")
-	flag.BoolVar(&debug, "debug", false, "Display raw value to debug")
+	logLevel := zap.LevelFlag("log", zap.InfoLevel, "log level")
 
 	flag.Parse()
 	if len(os.Args) <= 1 {
@@ -48,11 +47,7 @@ func main() {
 	}
 
 	config := zap.NewDevelopmentConfig()
-	if debug {
-		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	} else {
-		config.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
-	}
+	config.Level = zap.NewAtomicLevelAt(*logLevel)
 	lgr, err := config.Build()
 	if err != nil {
 		log.Fatalf("unable to init logger: %v", err)

@@ -10,13 +10,15 @@ import (
 	"time"
 )
 
-func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic string, minValue, maxValue float32, publishPilotFrequency int) *Controller {
+func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string,
+	minValue, maxValue float32, publishPilotFrequency int) *Controller {
 	return &Controller{
 		client:                client,
 		throttleTopic:         throttleTopic,
 		driveModeTopic:        driveModeTopic,
 		rcThrottleTopic:       rcThrottleTopic,
 		steeringTopic:         steeringTopic,
+		throttleFeedbackTopic: throttleFeedbackTopic,
 		maxThrottle:           maxValue,
 		driveMode:             events.DriveMode_USER,
 		publishPilotFrequency: publishPilotFrequency,
@@ -37,9 +39,12 @@ type Controller struct {
 	muSteering sync.RWMutex
 	steering   float32
 
-	cancel                                         chan interface{}
-	publishPilotFrequency                          int
-	driveModeTopic, rcThrottleTopic, steeringTopic string
+	muThrottleFeedback sync.RWMutex
+	throttleFeedback   float32
+
+	cancel                                                                chan interface{}
+	publishPilotFrequency                                                 int
+	driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string
 }
 
 func (c *Controller) Start() error {
@@ -90,7 +95,20 @@ func (c *Controller) readSteering() float32 {
 
 func (c *Controller) Stop() {
 	close(c.cancel)
-	service.StopService("throttle", c.client, c.driveModeTopic, c.rcThrottleTopic, c.steeringTopic)
+	service.StopService("throttle", c.client, c.driveModeTopic, c.rcThrottleTopic, c.steeringTopic, c.throttleFeedbackTopic)
+}
+
+func (c *Controller) onThrottleFeedback(_ mqtt.Client, message mqtt.Message) {
+	var msg events.ThrottleMessage
+	err := proto.Unmarshal(message.Payload(), &msg)
+	if err != nil {
+		zap.S().Errorf("unable to unmarshal protobuf %T message: %v", msg, err)
+		return
+	}
+
+	c.muThrottleFeedback.Lock()
+	defer c.muThrottleFeedback.Unlock()
+	c.throttleFeedback = msg.GetThrottle()
 }
 
 func (c *Controller) onDriveMode(_ mqtt.Client, message mqtt.Message) {
@@ -147,6 +165,13 @@ func (c *Controller) onSteering(_ mqtt.Client, message mqtt.Message) {
 	c.steering = steeringMsg.GetSteering()
 }
 
+func (c *Controller) ThrottleFeedback() float32 {
+	c.muThrottleFeedback.RLock()
+	defer c.muThrottleFeedback.RUnlock()
+	tf := c.throttleFeedback
+	return tf
+}
+
 var registerCallbacks = func(p *Controller) error {
 	err := service.RegisterCallback(p.client, p.driveModeTopic, p.onDriveMode)
 	if err != nil {
@@ -159,6 +184,10 @@ var registerCallbacks = func(p *Controller) error {
 	}
 
 	err = service.RegisterCallback(p.client, p.steeringTopic, p.onSteering)
+	if err != nil {
+		return err
+	}
+	err = service.RegisterCallback(p.client, p.throttleFeedbackTopic, p.onThrottleFeedback)
 	if err != nil {
 		return err
 	}

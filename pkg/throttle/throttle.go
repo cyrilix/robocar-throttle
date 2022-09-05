@@ -1,4 +1,4 @@
-package part
+package throttle
 
 import (
 	"github.com/cyrilix/robocar-base/service"
@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func NewPart(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic string, minValue, maxValue float32, publishPilotFrequency int) *ThrottlePart {
-	return &ThrottlePart{
+func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic string, minValue, maxValue float32, publishPilotFrequency int) *Controller {
+	return &Controller{
 		client:                client,
 		throttleTopic:         throttleTopic,
 		driveModeTopic:        driveModeTopic,
@@ -24,7 +24,7 @@ func NewPart(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic 
 
 }
 
-type ThrottlePart struct {
+type Controller struct {
 	client                   mqtt.Client
 	throttleTopic            string
 	minThrottle, maxThrottle float32
@@ -37,34 +37,34 @@ type ThrottlePart struct {
 	driveModeTopic, rcThrottleTopic string
 }
 
-func (p *ThrottlePart) Start() error {
-	if err := registerCallbacks(p); err != nil {
+func (c *Controller) Start() error {
+	if err := registerCallbacks(c); err != nil {
 		zap.S().Errorf("unable to register callbacks: %v", err)
 		return err
 	}
 
-	p.cancel = make(chan interface{})
-	ticker := time.NewTicker(1 * time.Second / time.Duration(p.publishPilotFrequency))
+	c.cancel = make(chan interface{})
+	ticker := time.NewTicker(1 * time.Second / time.Duration(c.publishPilotFrequency))
 	for {
 		select {
 		case <-ticker.C:
-			p.onPublishPilotValue()
-		case <-p.cancel:
+			c.onPublishPilotValue()
+		case <-c.cancel:
 			break
 		}
 	}
 }
 
-func (p *ThrottlePart) onPublishPilotValue() {
-	p.muDriveMode.RLock()
-	defer p.muDriveMode.RUnlock()
+func (c *Controller) onPublishPilotValue() {
+	c.muDriveMode.RLock()
+	defer c.muDriveMode.RUnlock()
 
-	if p.driveMode != events.DriveMode_PILOT {
+	if c.driveMode != events.DriveMode_PILOT {
 		return
 	}
 
 	throttleMsg := events.ThrottleMessage{
-		Throttle:   p.minThrottle,
+		Throttle:   c.minThrottle,
 		Confidence: 1.0,
 	}
 	payload, err := proto.Marshal(&throttleMsg)
@@ -73,15 +73,15 @@ func (p *ThrottlePart) onPublishPilotValue() {
 		return
 	}
 
-	publish(p.client, p.throttleTopic, &payload)
+	publish(c.client, c.throttleTopic, &payload)
 }
 
-func (p *ThrottlePart) Stop() {
-	close(p.cancel)
-	service.StopService("throttle", p.client, p.driveModeTopic, p.rcThrottleTopic)
+func (c *Controller) Stop() {
+	close(c.cancel)
+	service.StopService("throttle", c.client, c.driveModeTopic, c.rcThrottleTopic)
 }
 
-func (p *ThrottlePart) onDriveMode(_ mqtt.Client, message mqtt.Message) {
+func (c *Controller) onDriveMode(_ mqtt.Client, message mqtt.Message) {
 	var msg events.DriveModeMessage
 	err := proto.Unmarshal(message.Payload(), &msg)
 	if err != nil {
@@ -89,15 +89,15 @@ func (p *ThrottlePart) onDriveMode(_ mqtt.Client, message mqtt.Message) {
 		return
 	}
 
-	p.muDriveMode.Lock()
-	defer p.muDriveMode.Unlock()
-	p.driveMode = msg.GetDriveMode()
+	c.muDriveMode.Lock()
+	defer c.muDriveMode.Unlock()
+	c.driveMode = msg.GetDriveMode()
 }
 
-func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
-	p.muDriveMode.RLock()
-	defer p.muDriveMode.RUnlock()
-	if p.driveMode == events.DriveMode_USER {
+func (c *Controller) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
+	c.muDriveMode.RLock()
+	defer c.muDriveMode.RUnlock()
+	if c.driveMode == events.DriveMode_USER {
 		// Republish same content
 		payload := message.Payload()
 		var throttleMsg events.ThrottleMessage
@@ -107,22 +107,22 @@ func (p *ThrottlePart) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 			return
 		}
 		zap.S().Debugf("publish new throttle value from rc: %v", throttleMsg.GetThrottle())
-		if throttleMsg.GetThrottle() > p.maxThrottle {
-			zap.S().Debugf("throttle upper that max value allowed, patch value from %v to %v", throttleMsg.GetThrottle(), p.maxThrottle)
-			throttleMsg.Throttle = p.maxThrottle
+		if throttleMsg.GetThrottle() > c.maxThrottle {
+			zap.S().Debugf("throttle upper that max value allowed, patch value from %v to %v", throttleMsg.GetThrottle(), c.maxThrottle)
+			throttleMsg.Throttle = c.maxThrottle
 			payloadPatched, err := proto.Marshal(&throttleMsg)
 			if err != nil {
 				zap.S().Errorf("unable to marshall throttle msg: %v", err)
 				return
 			}
-			publish(p.client, p.throttleTopic, &payloadPatched)
+			publish(c.client, c.throttleTopic, &payloadPatched)
 			return
 		}
-		publish(p.client, p.throttleTopic, &payload)
+		publish(c.client, c.throttleTopic, &payload)
 	}
 }
 
-var registerCallbacks = func(p *ThrottlePart) error {
+var registerCallbacks = func(p *Controller) error {
 	err := service.RegisterCallback(p.client, p.driveModeTopic, p.onDriveMode)
 	if err != nil {
 		return err

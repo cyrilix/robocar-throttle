@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/cyrilix/robocar-base/cli"
-	"github.com/cyrilix/robocar-throttle/pkg/part"
+	"github.com/cyrilix/robocar-throttle/pkg/throttle"
 	"go.uber.org/zap"
 	"log"
 	"os"
@@ -65,7 +65,7 @@ func main() {
 	}
 	defer client.Disconnect(50)
 
-	p := part.NewPart(client, throttleTopic, driveModeTopic, rcThrottleTopic, float32(minThrottle), float32(maxThrottle), 2)
+	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, float32(minThrottle), float32(maxThrottle), 2)
 	defer p.Stop()
 
 	cli.HandleExit(p)

@@ -1,4 +1,4 @@
-package part
+package throttle
 
 import (
 	"github.com/cyrilix/robocar-base/testtools"
@@ -17,7 +17,7 @@ func TestDefaultThrottle(t *testing.T) {
 		registerCallbacks = oldRegister
 		publish = oldPublish
 	}()
-	registerCallbacks = func(p *ThrottlePart) error {
+	registerCallbacks = func(p *Controller) error {
 		return nil
 	}
 
@@ -35,7 +35,7 @@ func TestDefaultThrottle(t *testing.T) {
 
 	minValue := float32(0.56)
 
-	p := NewPart(nil, throttleTopic, driveModeTopic, rcThrottleTopic, minValue, 1., 200)
+	p := New(nil, throttleTopic, driveModeTopic, rcThrottleTopic, minValue, 1., 200)
 
 	cases := []struct {
 		name             string

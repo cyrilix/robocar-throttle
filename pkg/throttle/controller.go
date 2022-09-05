@@ -6,7 +6,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
-	"math"
 	"sync"
 	"time"
 )
@@ -18,18 +17,19 @@ func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, ste
 		driveModeTopic:        driveModeTopic,
 		rcThrottleTopic:       rcThrottleTopic,
 		steeringTopic:         steeringTopic,
-		minThrottle:           minValue,
 		maxThrottle:           maxValue,
 		driveMode:             events.DriveMode_USER,
 		publishPilotFrequency: publishPilotFrequency,
+		steeringProcessor:     &SteeringProcessor{minThrottle: minValue, maxThrottle: maxValue},
 	}
 
 }
 
 type Controller struct {
-	client                   mqtt.Client
-	throttleTopic            string
-	minThrottle, maxThrottle float32
+	client            mqtt.Client
+	throttleTopic     string
+	maxThrottle       float32
+	steeringProcessor *SteeringProcessor
 
 	muDriveMode sync.RWMutex
 	driveMode   events.DriveMode
@@ -69,7 +69,7 @@ func (c *Controller) onPublishPilotValue() {
 	}
 
 	throttleMsg := events.ThrottleMessage{
-		Throttle:   c.computeThrottle(),
+		Throttle:   c.steeringProcessor.Process(c.readSteering()),
 		Confidence: 1.0,
 	}
 	payload, err := proto.Marshal(&throttleMsg)
@@ -80,12 +80,6 @@ func (c *Controller) onPublishPilotValue() {
 
 	publish(c.client, c.throttleTopic, payload)
 
-}
-
-func (c *Controller) computeThrottle() float32 {
-	s := c.readSteering()
-	absSteering := math.Abs(float64(s))
-	return c.minThrottle + float32(float64(c.maxThrottle-c.minThrottle)*(1-absSteering))
 }
 
 func (c *Controller) readSteering() float32 {

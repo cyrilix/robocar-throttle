@@ -16,8 +16,9 @@ const (
 
 func main() {
 	var mqttBroker, username, password, clientId string
-	var throttleTopic, driveModeTopic, rcThrottleTopic string
+	var throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic string
 	var minThrottle, maxThrottle float64
+	var publishPilotFrequency int
 
 	err := cli.SetFloat64DefaultValueFromEnv(&minThrottle, "THROTTLE_MIN", DefaultThrottleMin)
 	if err != nil {
@@ -36,8 +37,12 @@ func main() {
 	flag.StringVar(&throttleTopic, "mqtt-topic-throttle", os.Getenv("MQTT_TOPIC_THROTTLE"), "Mqtt topic to publish throttle result, use MQTT_TOPIC_THROTTLE if args not set")
 	flag.StringVar(&driveModeTopic, "mqtt-topic-drive-mode", os.Getenv("MQTT_TOPIC_DRIVE_MODE"), "Mqtt topic that contains DriveMode value, use MQTT_TOPIC_DRIVE_MODE if args not set")
 	flag.StringVar(&rcThrottleTopic, "mqtt-topic-rc-throttle", os.Getenv("MQTT_TOPIC_RC_THROTTLE"), "Mqtt topic that contains RC Throttle value, use MQTT_TOPIC_RC_THROTTLE if args not set")
+	flag.StringVar(&steeringTopic, "mqtt-topic-steering", os.Getenv("MQTT_TOPIC_STEERING"), "Mqtt topic that contains steering value, use MQTT_TOPIC_STEERING if args not set")
+
 	flag.Float64Var(&minThrottle, "throttle-min", minThrottle, "Minimum throttle value, use THROTTLE_MIN if args not set")
 	flag.Float64Var(&maxThrottle, "throttle-max", maxThrottle, "Minimum throttle value, use THROTTLE_MAX if args not set")
+	flag.IntVar(&publishPilotFrequency, "update-pwm-frequency", 2, "Number of throttle event to publish when pilot mode is enabled")
+
 	logLevel := zap.LevelFlag("log", zap.InfoLevel, "log level")
 
 	flag.Parse()
@@ -65,7 +70,7 @@ func main() {
 	}
 	defer client.Disconnect(50)
 
-	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, float32(minThrottle), float32(maxThrottle), 2)
+	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, float32(minThrottle), float32(maxThrottle), 2)
 	defer p.Stop()
 
 	cli.HandleExit(p)

@@ -71,6 +71,16 @@ func main() {
 	}()
 	zap.ReplaceGlobals(lgr)
 
+	zap.S().Infof("Topic throttle          : %s", throttleTopic)
+	zap.S().Infof("Topic rc-throttle       : %s", rcThrottleTopic)
+	zap.S().Infof("Topic throttle feedback : %s", throttleFeedbackTopic)
+	zap.S().Infof("Topic steering          : %s", steeringTopic)
+	zap.S().Infof("Topic drive mode        : %s", driveModeTopic)
+	zap.S().Infof("Min throttle            : %v", minThrottle)
+	zap.S().Infof("Max throttle            : %v", maxThrottle)
+	zap.S().Infof("Publish frequency       : %vHz", publishPilotFrequency)
+	zap.S().Infof("Brake enabled           : %v", enableBrake)
+
 	client, err := cli.Connect(mqttBroker, username, password, clientId)
 	if err != nil {
 		zap.S().Fatalf("unable to connect to mqtt bus: %v", err)

@@ -1,11 +1,14 @@
 package throttle
 
-import "testing"
+import (
+	"github.com/cyrilix/robocar-throttle/pkg/types"
+	"testing"
+)
 
 func TestSteeringProcessor_Process(t *testing.T) {
 	type fields struct {
-		minThrottle float32
-		maxThrottle float32
+		minThrottle types.Throttle
+		maxThrottle types.Throttle
 	}
 	type args struct {
 		steering float32
@@ -14,7 +17,7 @@ func TestSteeringProcessor_Process(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   float32
+		want   types.Throttle
 	}{
 		{
 			name: "steering straight",

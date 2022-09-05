@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"github.com/cyrilix/robocar-base/cli"
+	"github.com/cyrilix/robocar-throttle/pkg/brake"
 	"github.com/cyrilix/robocar-throttle/pkg/throttle"
+	"github.com/cyrilix/robocar-throttle/pkg/types"
 	"go.uber.org/zap"
 	"log"
 	"os"
@@ -19,6 +21,8 @@ func main() {
 	var throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string
 	var minThrottle, maxThrottle float64
 	var publishPilotFrequency int
+	var brakeConfig string
+	var enableBrake bool
 
 	err := cli.SetFloat64DefaultValueFromEnv(&minThrottle, "THROTTLE_MIN", DefaultThrottleMin)
 	if err != nil {
@@ -44,6 +48,8 @@ func main() {
 	flag.Float64Var(&maxThrottle, "throttle-max", maxThrottle, "Minimum throttle value, use THROTTLE_MAX if args not set")
 	flag.IntVar(&publishPilotFrequency, "update-pwm-frequency", 2, "Number of throttle event to publish when pilot mode is enabled")
 
+	flag.BoolVar(&enableBrake, "enable-brake-feature", false, "Enable brake to slow car on throttle changes")
+	flag.StringVar(&brakeConfig, "brake-configuration", "", "Json file to use to configure brake adaptation when --enable-brake is `true`")
 	logLevel := zap.LevelFlag("log", zap.InfoLevel, "log level")
 
 	flag.Parse()
@@ -71,7 +77,14 @@ func main() {
 	}
 	defer client.Disconnect(50)
 
-	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, float32(minThrottle), float32(maxThrottle), 2)
+	var brakeCtrl brake.Controller
+	if enableBrake {
+		brakeCtrl = brake.NewCustomControllerWithJsonConfig(brakeConfig)
+	} else {
+		brakeCtrl = &brake.DisabledController{}
+	}
+	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
+		types.Throttle(minThrottle), types.Throttle(maxThrottle), 2, throttle.WithBrakeController(brakeCtrl))
 	defer p.Stop()
 
 	cli.HandleExit(p)

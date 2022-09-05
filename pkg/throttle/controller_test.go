@@ -3,6 +3,8 @@ package throttle
 import (
 	"github.com/cyrilix/robocar-base/testtools"
 	"github.com/cyrilix/robocar-protobuf/go/events"
+	"github.com/cyrilix/robocar-throttle/pkg/brake"
+	"github.com/cyrilix/robocar-throttle/pkg/types"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"google.golang.org/protobuf/proto"
 	"sync"
@@ -35,13 +37,13 @@ func TestDefaultThrottle(t *testing.T) {
 	steeringTopic := "topic/rcThrottle"
 	throttleFeedbackTopic := "topic/feedback/throttle"
 
-	minValue := float32(0.56)
+	minValue := types.Throttle(0.56)
 
 	p := New(nil, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, minValue, 1., 200)
 
-	cases := []struct {
+	cases := []*struct {
 		name             string
-		maxThrottle      float32
+		maxThrottle      types.Throttle
 		driveMode        events.DriveModeMessage
 		rcThrottle       events.ThrottleMessage
 		expectedThrottle events.ThrottleMessage
@@ -118,8 +120,9 @@ func TestController_Start(t *testing.T) {
 
 	type fields struct {
 		driveMode             events.DriveMode
-		min, max              float32
+		min, max              types.Throttle
 		publishPilotFrequency int
+		brakeCtl              brake.Controller
 	}
 	type msgEvents struct {
 		driveMode        *events.DriveModeMessage
@@ -142,6 +145,7 @@ func TestController_Start(t *testing.T) {
 				max:                   0.8,
 				min:                   0.3,
 				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_USER},
@@ -158,6 +162,7 @@ func TestController_Start(t *testing.T) {
 				max:                   0.8,
 				min:                   0.3,
 				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_USER},
@@ -174,6 +179,7 @@ func TestController_Start(t *testing.T) {
 				max:                   0.8,
 				min:                   0.3,
 				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_USER},
@@ -190,6 +196,7 @@ func TestController_Start(t *testing.T) {
 				max:                   0.8,
 				min:                   0.3,
 				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_PILOT},
@@ -206,6 +213,7 @@ func TestController_Start(t *testing.T) {
 				max:                   0.8,
 				min:                   0.3,
 				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_PILOT},
@@ -222,6 +230,7 @@ func TestController_Start(t *testing.T) {
 				max:                   0.8,
 				min:                   0.3,
 				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_PILOT},
@@ -231,6 +240,23 @@ func TestController_Start(t *testing.T) {
 			},
 			want: &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
 		},
+		{
+			name: "On pilot drive mode, should brake on brutal change",
+			fields: fields{
+				driveMode:             events.DriveMode_PILOT,
+				max:                   1.0,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              brake.NewCustomController(),
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_PILOT},
+				steering:         &events.SteeringMessage{Steering: -1.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 1.0, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: -1.0, Confidence: 1.0},
+		},
 	}
 
 	for _, tt := range tests {
@@ -239,6 +265,7 @@ func TestController_Start(t *testing.T) {
 				throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
 				tt.fields.min, tt.fields.max,
 				tt.fields.publishPilotFrequency,
+				WithBrakeController(tt.fields.brakeCtl),
 			)
 
 			go c.Start()

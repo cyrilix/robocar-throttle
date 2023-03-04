@@ -1,8 +1,8 @@
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/cyrilix/robocar-base v0.1.7 h1:EVzZ0KjigSFpke5f3A/PybEH3WFUEIrYSc3z/dhOZ48=
 github.com/cyrilix/robocar-base v0.1.7/go.mod h1:4E11HQSNy2NT8e7MW188y6ST9C0RzarKyn7sK/3V/Lk=
-github.com/cyrilix/robocar-protobuf/go v1.1.0 h1:txIjGnnCF3UzedpsWu+sL7nMA+pNjSnX6HZlAmuReH4=
-github.com/cyrilix/robocar-protobuf/go v1.1.0/go.mod h1:Y3AE28K5V7EZxMXp/6A8RhkRz15VOfFy4CjST35FbtQ=
+github.com/cyrilix/robocar-protobuf/go v1.3.0 h1:vLsoLQeIfXPnrJ+xYrPy/R/swjYiMBBR7wT2ILdLcQA=
+github.com/cyrilix/robocar-protobuf/go v1.3.0/go.mod h1:Y3AE28K5V7EZxMXp/6A8RhkRz15VOfFy4CjST35FbtQ=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

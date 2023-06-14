@@ -12,8 +12,9 @@ import (
 	"time"
 )
 
-func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string,
-	minValue, maxValue types.Throttle, publishPilotFrequency int, opts ...Option) *Controller {
+func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
+	speedZoneTopic string,
+	maxValue types.Throttle, publishPilotFrequency int, opts ...Option) *Controller {
 	c := &Controller{
 		client:                client,
 		throttleTopic:         throttleTopic,
@@ -21,10 +22,11 @@ func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, ste
 		rcThrottleTopic:       rcThrottleTopic,
 		steeringTopic:         steeringTopic,
 		throttleFeedbackTopic: throttleFeedbackTopic,
+		speedZoneTopic:        speedZoneTopic,
 		maxThrottle:           maxValue,
 		driveMode:             events.DriveMode_USER,
 		publishPilotFrequency: publishPilotFrequency,
-		steeringProcessor:     &SteeringProcessor{minThrottle: minValue, maxThrottle: maxValue},
+		processor:             &SteeringProcessor{minThrottle: 0.1, maxThrottle: maxValue},
 		brakeCtrl:             &brake.DisabledController{},
 	}
 	for _, o := range opts {
@@ -41,23 +43,30 @@ func WithBrakeController(bc brake.Controller) Option {
 	}
 }
 
+func WithThrottleProcessor(p Processor) Option {
+	return func(c *Controller) {
+		c.processor = p
+	}
+}
+
 type Controller struct {
-	client            mqtt.Client
-	throttleTopic     string
-	maxThrottle       types.Throttle
-	steeringProcessor *SteeringProcessor
+	client        mqtt.Client
+	throttleTopic string
+	maxThrottle   types.Throttle
+	processor     Processor
 
 	muDriveMode sync.RWMutex
 	driveMode   events.DriveMode
 
 	muSteering sync.RWMutex
-	steering   float32
+	steering   types.Steering
 
 	brakeCtrl brake.Controller
 
 	cancel                                                                chan interface{}
 	publishPilotFrequency                                                 int
 	driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string
+	speedZoneTopic                                                        string
 }
 
 func (c *Controller) Start() error {
@@ -86,7 +95,7 @@ func (c *Controller) onPublishPilotValue() {
 		return
 	}
 
-	throttleFromSteering := c.steeringProcessor.Process(c.readSteering())
+	throttleFromSteering := c.processor.Process(c.readSteering())
 
 	throttleMsg := events.ThrottleMessage{
 		Throttle:   float32(c.brakeCtrl.AdjustThrottle(throttleFromSteering)),
@@ -102,7 +111,7 @@ func (c *Controller) onPublishPilotValue() {
 
 }
 
-func (c *Controller) readSteering() float32 {
+func (c *Controller) readSteering() types.Steering {
 	c.muSteering.RLock()
 	defer c.muSteering.RUnlock()
 	return c.steering
@@ -110,7 +119,8 @@ func (c *Controller) readSteering() float32 {
 
 func (c *Controller) Stop() {
 	close(c.cancel)
-	service.StopService("throttle", c.client, c.driveModeTopic, c.rcThrottleTopic, c.steeringTopic, c.throttleFeedbackTopic)
+	service.StopService("throttle", c.client, c.driveModeTopic, c.rcThrottleTopic, c.steeringTopic,
+		c.throttleFeedbackTopic, c.speedZoneTopic)
 }
 
 func (c *Controller) onThrottleFeedback(_ mqtt.Client, message mqtt.Message) {
@@ -174,7 +184,18 @@ func (c *Controller) onSteering(_ mqtt.Client, message mqtt.Message) {
 	}
 	c.muSteering.Lock()
 	defer c.muSteering.Unlock()
-	c.steering = steeringMsg.GetSteering()
+	c.steering = types.Steering(steeringMsg.GetSteering())
+}
+
+func (c *Controller) onSpeedZone(_ mqtt.Client, message mqtt.Message) {
+	var szMsg events.SpeedZoneMessage
+	payload := message.Payload()
+	err := proto.Unmarshal(payload, &szMsg)
+	if err != nil {
+		zap.S().Errorf("unable to unmarshal speedZone message, skip value: %v", err)
+		return
+	}
+	c.processor.SetSpeedZone(szMsg.GetSpeedZone())
 }
 
 var registerCallbacks = func(p *Controller) error {
@@ -193,6 +214,10 @@ var registerCallbacks = func(p *Controller) error {
 		return err
 	}
 	err = service.RegisterCallback(p.client, p.throttleFeedbackTopic, p.onThrottleFeedback)
+	if err != nil {
+		return err
+	}
+	err = service.RegisterCallback(p.client, p.speedZoneTopic, p.onSpeedZone)
 	if err != nil {
 		return err
 	}

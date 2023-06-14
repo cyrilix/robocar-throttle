@@ -13,16 +13,19 @@ import (
 
 const (
 	DefaultClientId    = "robocar-throttle"
-	DefaultThrottleMin = 0.3
+	DefaultThrottleMin = 0.1
 )
 
 func main() {
 	var mqttBroker, username, password, clientId string
-	var throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string
+	var throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, speedZoneTopic string
 	var minThrottle, maxThrottle float64
 	var publishPilotFrequency int
 	var brakeConfig string
 	var enableBrake bool
+	var enableSpeedZone bool
+	var slowZoneThrottle, normalZoneThrottle, fastZoneThrottle float64
+	var moderateSteering, fullSteering float64
 
 	err := cli.SetFloat64DefaultValueFromEnv(&minThrottle, "THROTTLE_MIN", DefaultThrottleMin)
 	if err != nil {
@@ -43,6 +46,7 @@ func main() {
 	flag.StringVar(&rcThrottleTopic, "mqtt-topic-rc-throttle", os.Getenv("MQTT_TOPIC_RC_THROTTLE"), "Mqtt topic that contains RC Throttle value, use MQTT_TOPIC_RC_THROTTLE if args not set")
 	flag.StringVar(&steeringTopic, "mqtt-topic-steering", os.Getenv("MQTT_TOPIC_STEERING"), "Mqtt topic that contains steering value, use MQTT_TOPIC_STEERING if args not set")
 	flag.StringVar(&throttleFeedbackTopic, "mqtt-topic-throttle-feedback", os.Getenv("MQTT_TOPIC_THROTTLE_FEEDBACK"), "Mqtt topic where to publish throttle feedback, use MQTT_TOPIC_THROTTLE_FEEDBACK if args not set")
+	flag.StringVar(&speedZoneTopic, "mqtt-topic-speed-zone", os.Getenv("MQTT_TOPIC_SPEED_ZONE"), "Mqtt topic where to subscribe speed zone events, use MQTT_TOPIC_SPEED_ZONE if args not set")
 
 	flag.Float64Var(&minThrottle, "throttle-min", minThrottle, "Minimum throttle value, use THROTTLE_MIN if args not set")
 	flag.Float64Var(&maxThrottle, "throttle-max", maxThrottle, "Minimum throttle value, use THROTTLE_MAX if args not set")
@@ -50,6 +54,13 @@ func main() {
 
 	flag.BoolVar(&enableBrake, "enable-brake-feature", false, "Enable brake to slow car on throttle changes")
 	flag.StringVar(&brakeConfig, "brake-configuration", "", "Json file to use to configure brake adaptation when --enable-brake is `true`")
+	flag.BoolVar(&enableSpeedZone, "enable-speed-zone", false, "Enable speed zone information to estimate throttle")
+	flag.Float64Var(&slowZoneThrottle, "slow-zone-throttle", 0.11, "Throttle target for slow speed zone")
+	flag.Float64Var(&normalZoneThrottle, "normal-zone-throttle", 0.12, "Throttle target for normal speed zone")
+	flag.Float64Var(&fastZoneThrottle, "fast-zone-throttle", 0.13, "Throttle target for fast speed zone")
+	flag.Float64Var(&moderateSteering, "moderate-steering", 0.3, "Steering above is considered as moderate")
+	flag.Float64Var(&fullSteering, "full-steering", 0.8, "Steering above is considered as full")
+
 	logLevel := zap.LevelFlag("log", zap.InfoLevel, "log level")
 
 	flag.Parse()
@@ -71,15 +82,22 @@ func main() {
 	}()
 	zap.ReplaceGlobals(lgr)
 
-	zap.S().Infof("Topic throttle          : %s", throttleTopic)
-	zap.S().Infof("Topic rc-throttle       : %s", rcThrottleTopic)
-	zap.S().Infof("Topic throttle feedback : %s", throttleFeedbackTopic)
-	zap.S().Infof("Topic steering          : %s", steeringTopic)
-	zap.S().Infof("Topic drive mode        : %s", driveModeTopic)
-	zap.S().Infof("Min throttle            : %v", minThrottle)
-	zap.S().Infof("Max throttle            : %v", maxThrottle)
-	zap.S().Infof("Publish frequency       : %vHz", publishPilotFrequency)
-	zap.S().Infof("Brake enabled           : %v", enableBrake)
+	zap.S().Infof("Topic throttle                 : %s", throttleTopic)
+	zap.S().Infof("Topic rc-throttle              : %s", rcThrottleTopic)
+	zap.S().Infof("Topic throttle feedback        : %s", throttleFeedbackTopic)
+	zap.S().Infof("Topic steering                 : %s", steeringTopic)
+	zap.S().Infof("Topic drive mode               : %s", driveModeTopic)
+	zap.S().Infof("Topic speed zone               : %s", speedZoneTopic)
+	zap.S().Infof("Min throttle                   : %v", minThrottle)
+	zap.S().Infof("Max throttle                   : %v", maxThrottle)
+	zap.S().Infof("Publish frequency              : %vHz", publishPilotFrequency)
+	zap.S().Infof("Brake enabled                  : %v", enableBrake)
+	zap.S().Infof("SpeedZone enabled              : %v", enableSpeedZone)
+	zap.S().Infof("SpeedZone slow throttle        : %v", slowZoneThrottle)
+	zap.S().Infof("SpeedZone normal throttle      : %v", normalZoneThrottle)
+	zap.S().Infof("SpeedZone fast throttle        : %v", fastZoneThrottle)
+	zap.S().Infof("Steering moderate              : %v", moderateSteering)
+	zap.S().Infof("Steering full                  : %v", fullSteering)
 
 	client, err := cli.Connect(mqttBroker, username, password, clientId)
 	if err != nil {

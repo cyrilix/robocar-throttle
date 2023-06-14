@@ -36,10 +36,9 @@ func TestDefaultThrottle(t *testing.T) {
 	rcThrottleTopic := "topic/rcThrottle"
 	steeringTopic := "topic/rcThrottle"
 	throttleFeedbackTopic := "topic/feedback/throttle"
+	speedZoneTopic := "topic/speedZone"
 
-	minValue := types.Throttle(0.56)
-
-	p := New(nil, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, minValue, 1., 200)
+	p := New(nil, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, speedZoneTopic, 1., 200)
 
 	cases := []*struct {
 		name             string
@@ -117,6 +116,7 @@ func TestController_Start(t *testing.T) {
 	driveModeTopic := "topic/driveMode"
 	rcThrottleTopic := "topic/rcThrottle"
 	throttleFeedbackTopic := "topic/feedback/throttle"
+	speedZoneTopic := "topic/speedZone"
 
 	type fields struct {
 		driveMode             events.DriveMode
@@ -263,7 +263,7 @@ func TestController_Start(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := New(nil,
 				throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
-				tt.fields.min, tt.fields.max,
+				speedZoneTopic, tt.fields.max,
 				tt.fields.publishPilotFrequency,
 				WithBrakeController(tt.fields.brakeCtl),
 			)

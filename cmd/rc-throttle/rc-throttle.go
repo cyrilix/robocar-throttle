@@ -24,6 +24,8 @@ func main() {
 	var brakeConfig string
 	var enableBrake bool
 	var enableSpeedZone bool
+	var enableCustomSteeringProcessor bool
+	var configFileSteeringProcessor string
 	var slowZoneThrottle, normalZoneThrottle, fastZoneThrottle float64
 	var moderateSteering, fullSteering float64
 
@@ -54,6 +56,10 @@ func main() {
 
 	flag.BoolVar(&enableBrake, "enable-brake-feature", false, "Enable brake to slow car on throttle changes")
 	flag.StringVar(&brakeConfig, "brake-configuration", "", "Json file to use to configure brake adaptation when --enable-brake is `true`")
+
+	flag.BoolVar(&enableCustomSteeringProcessor, "enable-custom-steering-processor", false, "Enable custom steering processor to estimate throttle")
+	flag.StringVar(&configFileSteeringProcessor, "custom-steering-processor-config", "", "Path to json config to parameter custom steering processor")
+
 	flag.BoolVar(&enableSpeedZone, "enable-speed-zone", false, "Enable speed zone information to estimate throttle")
 	flag.Float64Var(&slowZoneThrottle, "slow-zone-throttle", 0.11, "Throttle target for slow speed zone")
 	flag.Float64Var(&normalZoneThrottle, "normal-zone-throttle", 0.12, "Throttle target for normal speed zone")
@@ -92,6 +98,7 @@ func main() {
 	zap.S().Infof("Max throttle                   : %v", maxThrottle)
 	zap.S().Infof("Publish frequency              : %vHz", publishPilotFrequency)
 	zap.S().Infof("Brake enabled                  : %v", enableBrake)
+	zap.S().Infof("CustomSteeringProcessor enabled: %v", enableCustomSteeringProcessor)
 	zap.S().Infof("SpeedZone enabled              : %v", enableSpeedZone)
 	zap.S().Infof("SpeedZone slow throttle        : %v", slowZoneThrottle)
 	zap.S().Infof("SpeedZone normal throttle      : %v", normalZoneThrottle)
@@ -111,8 +118,33 @@ func main() {
 	} else {
 		brakeCtrl = &brake.DisabledController{}
 	}
+
+	if enableSpeedZone && enableCustomSteeringProcessor {
+		zap.S().Panicf("invalid flag, speedZone and customSteering processor can't be enabled at the same time")
+	}
+	var throttleProcessor throttle.Processor
+	if enableSpeedZone {
+		throttleProcessor = throttle.NewSpeedZoneProcessor(
+			types.Throttle(slowZoneThrottle),
+			types.Throttle(normalZoneThrottle),
+			types.Throttle(fastZoneThrottle),
+			moderateSteering,
+			fullSteering,
+		)
+	} else if enableCustomSteeringProcessor {
+		cfg, err := throttle.NewConfigFromJson(configFileSteeringProcessor)
+		if err != nil {
+			zap.S().Fatalf("unable to load config '%v': %v", configFileSteeringProcessor, err)
+		}
+		throttleProcessor = throttle.NewCustomSteeringProcessor(cfg)
+	} else {
+		throttleProcessor = throttle.NewSteeringProcessor(types.Throttle(minThrottle), types.Throttle(maxThrottle))
+	}
+
 	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
-		types.Throttle(minThrottle), types.Throttle(maxThrottle), 2, throttle.WithBrakeController(brakeCtrl))
+		speedZoneTopic, types.Throttle(maxThrottle), 2,
+		throttle.WithThrottleProcessor(throttleProcessor),
+		throttle.WithBrakeController(brakeCtrl))
 	defer p.Stop()
 
 	cli.HandleExit(p)

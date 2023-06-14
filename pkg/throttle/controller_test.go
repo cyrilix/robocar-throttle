@@ -265,6 +265,10 @@ func TestController_Start(t *testing.T) {
 				throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
 				speedZoneTopic, tt.fields.max,
 				tt.fields.publishPilotFrequency,
+				WithThrottleProcessor(&SteeringProcessor{
+					minThrottle: tt.fields.min,
+					maxThrottle: tt.fields.max,
+				}),
 				WithBrakeController(tt.fields.brakeCtl),
 			)
 

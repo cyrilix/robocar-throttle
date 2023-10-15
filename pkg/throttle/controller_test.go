@@ -53,7 +53,12 @@ func TestDefaultThrottle(t *testing.T) {
 		{"test4", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}},
 		{"test5", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
 		{"test6", 1., events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}},
+		{"test7", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0}},
+		{"test8", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}},
+		{"test9", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
+		{"test10", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}},
 		{"limit max throttle on user mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
+		{"limit max throttle on copilot mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
 	}
 
 	go p.Start()
@@ -183,6 +188,57 @@ func TestController_Start(t *testing.T) {
 			},
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_USER},
+				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
+		},
+		{
+			name: "On copilot drive mode, throttle from rc",
+			fields: fields{
+				driveMode:             events.DriveMode_COPILOT,
+				max:                   0.8,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT},
+				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+		},
+		{
+			name: "On copilot drive mode, limit throttle to max allowed value",
+			fields: fields{
+				driveMode:             events.DriveMode_COPILOT,
+				max:                   0.8,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT},
+				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+		},
+		{
+			name: "On copilot drive mode, throttle can be < to  min allowed value",
+			fields: fields{
+				driveMode:             events.DriveMode_COPILOT,
+				max:                   0.8,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT},
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},

@@ -149,7 +149,7 @@ func (c *Controller) onDriveMode(_ mqtt.Client, message mqtt.Message) {
 func (c *Controller) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 	c.muDriveMode.RLock()
 	defer c.muDriveMode.RUnlock()
-	if c.driveMode == events.DriveMode_USER {
+	if c.driveMode == events.DriveMode_USER || c.driveMode == events.DriveMode_COPILOT {
 		// Republish same content
 		payload := message.Payload()
 		var throttleMsg events.ThrottleMessage

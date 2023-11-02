@@ -159,9 +159,11 @@ func (c *Controller) onRCThrottle(_ mqtt.Client, message mqtt.Message) {
 			return
 		}
 		zap.S().Debugf("publish new throttle value from rc: %v", throttleMsg.GetThrottle())
-		if types.Throttle(throttleMsg.GetThrottle()) > c.maxThrottle {
-			zap.S().Debugf("throttle upper that max value allowed, patch value from %v to %v", throttleMsg.GetThrottle(), c.maxThrottle)
-			throttleMsg.Throttle = float32(c.maxThrottle)
+
+		if types.Throttle(throttleMsg.GetThrottle()) > 0. {
+			maxTh := c.maxThrottle
+			current := types.Throttle(throttleMsg.GetThrottle())
+			throttleMsg.Throttle = float32(current * maxTh)
 			payloadPatched, err := proto.Marshal(&throttleMsg)
 			if err != nil {
 				zap.S().Errorf("unable to marshall throttle msg: %v", err)

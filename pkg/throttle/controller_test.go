@@ -57,8 +57,8 @@ func TestDefaultThrottle(t *testing.T) {
 		{"test8", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0}},
 		{"test9", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
 		{"test10", 1., events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}},
-		{"limit max throttle on user mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
-		{"limit max throttle on copilot mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0}},
+		{"rescale throttle on user mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_USER}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.24000001, Confidence: 1.0}},
+		{"rescale throttle on copilot mode", 0.4, events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT}, events.ThrottleMessage{Throttle: 0.6, Confidence: 1.0}, events.ThrottleMessage{Throttle: 0.24000001, Confidence: 1.0}},
 	}
 
 	go p.Start()
@@ -155,13 +155,13 @@ func TestController_Start(t *testing.T) {
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_USER},
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
-				rcThrottle:       &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 		},
 		{
-			name: "On user drive mode, limit throttle to max allowed value",
+			name: "On user drive mode, rescale throttle with max allowed value",
 			fields: fields{
 				driveMode:             events.DriveMode_USER,
 				max:                   0.8,
@@ -175,7 +175,7 @@ func TestController_Start(t *testing.T) {
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
-			want: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+			want: &events.ThrottleMessage{Throttle: 0.71999997, Confidence: 1.0},
 		},
 		{
 			name: "On user drive mode, throttle can be < to  min allowed value",
@@ -192,7 +192,24 @@ func TestController_Start(t *testing.T) {
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 			},
-			want: &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
+			want: &events.ThrottleMessage{Throttle: 0.080000006, Confidence: 1.0},
+		},
+		{
+			name: "On user drive mode, brake doesn't rescale throttle",
+			fields: fields{
+				driveMode:             events.DriveMode_USER,
+				max:                   0.8,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_USER},
+				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
 		},
 		{
 			name: "On copilot drive mode, throttle from rc",
@@ -206,10 +223,27 @@ func TestController_Start(t *testing.T) {
 			msgEvents: msgEvents{
 				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT},
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
-				rcThrottle:       &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+		},
+		{
+			name: "On copilot drive mode, rescale throttle with max allowed value",
+			fields: fields{
+				driveMode:             events.DriveMode_COPILOT,
+				max:                   0.8,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT},
+				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: 0.71999997, Confidence: 1.0},
 		},
 		{
 			name: "On copilot drive mode, limit throttle to max allowed value",
@@ -226,7 +260,7 @@ func TestController_Start(t *testing.T) {
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
-			want: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+			want: &events.ThrottleMessage{Throttle: 0.71999997, Confidence: 1.0},
 		},
 		{
 			name: "On copilot drive mode, throttle can be < to  min allowed value",
@@ -243,7 +277,24 @@ func TestController_Start(t *testing.T) {
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 			},
-			want: &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
+			want: &events.ThrottleMessage{Throttle: 0.080000006, Confidence: 1.0},
+		},
+		{
+			name: "On user drive mode, brake doesn't rescale throttle",
+			fields: fields{
+				driveMode:             events.DriveMode_COPILOT,
+				max:                   0.8,
+				min:                   0.3,
+				publishPilotFrequency: publishPilotFrequency,
+				brakeCtl:              &brake.DisabledController{},
+			},
+			msgEvents: msgEvents{
+				driveMode:        &events.DriveModeMessage{DriveMode: events.DriveMode_COPILOT},
+				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
+				rcThrottle:       &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
+				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+			},
+			want: &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
 		},
 		{
 			name: "On pilot drive mode and straight steering, use max throttle allowed",

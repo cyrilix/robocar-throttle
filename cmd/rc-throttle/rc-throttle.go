@@ -18,7 +18,8 @@ const (
 
 func main() {
 	var mqttBroker, username, password, clientId string
-	var throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, speedZoneTopic string
+	var throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, maxThrottleCtrlTopic,
+		speedZoneTopic string
 	var minThrottle, maxThrottle float64
 	var publishPilotFrequency int
 	var brakeConfig string
@@ -46,6 +47,7 @@ func main() {
 	flag.StringVar(&throttleTopic, "mqtt-topic-throttle", os.Getenv("MQTT_TOPIC_THROTTLE"), "Mqtt topic to publish throttle result, use MQTT_TOPIC_THROTTLE if args not set")
 	flag.StringVar(&driveModeTopic, "mqtt-topic-drive-mode", os.Getenv("MQTT_TOPIC_DRIVE_MODE"), "Mqtt topic that contains DriveMode value, use MQTT_TOPIC_DRIVE_MODE if args not set")
 	flag.StringVar(&rcThrottleTopic, "mqtt-topic-rc-throttle", os.Getenv("MQTT_TOPIC_RC_THROTTLE"), "Mqtt topic that contains RC Throttle value, use MQTT_TOPIC_RC_THROTTLE if args not set")
+	flag.StringVar(&maxThrottleCtrlTopic, "mqtt-topic-max-throttle-ctrl", os.Getenv("MQTT_TOPIC_MAX_THROTTLE_CTRL"), "Mqtt topic where to publish max throttle value allowed, use MQTT_TOPIC_MAX_THROTTLE_CTRL if args not set")
 	flag.StringVar(&steeringTopic, "mqtt-topic-steering", os.Getenv("MQTT_TOPIC_STEERING"), "Mqtt topic that contains steering value, use MQTT_TOPIC_STEERING if args not set")
 	flag.StringVar(&throttleFeedbackTopic, "mqtt-topic-throttle-feedback", os.Getenv("MQTT_TOPIC_THROTTLE_FEEDBACK"), "Mqtt topic where to publish throttle feedback, use MQTT_TOPIC_THROTTLE_FEEDBACK if args not set")
 	flag.StringVar(&speedZoneTopic, "mqtt-topic-speed-zone", os.Getenv("MQTT_TOPIC_SPEED_ZONE"), "Mqtt topic where to subscribe speed zone events, use MQTT_TOPIC_SPEED_ZONE if args not set")
@@ -142,7 +144,7 @@ func main() {
 	}
 
 	p := throttle.New(client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
-		speedZoneTopic, types.Throttle(maxThrottle), 2,
+		maxThrottleCtrlTopic, speedZoneTopic, types.Throttle(maxThrottle), 2,
 		throttle.WithThrottleProcessor(throttleProcessor),
 		throttle.WithBrakeController(brakeCtrl))
 	defer p.Stop()

@@ -13,7 +13,7 @@ import (
 )
 
 func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
-	speedZoneTopic string,
+	maxThrottleCtrlTopic, speedZoneTopic string,
 	maxValue types.Throttle, publishPilotFrequency int, opts ...Option) *Controller {
 	c := &Controller{
 		client:                client,
@@ -22,6 +22,7 @@ func New(client mqtt.Client, throttleTopic, driveModeTopic, rcThrottleTopic, ste
 		rcThrottleTopic:       rcThrottleTopic,
 		steeringTopic:         steeringTopic,
 		throttleFeedbackTopic: throttleFeedbackTopic,
+		maxThrottleCtrlTopic:  maxThrottleCtrlTopic,
 		speedZoneTopic:        speedZoneTopic,
 		maxThrottle:           maxValue,
 		driveMode:             events.DriveMode_USER,
@@ -66,6 +67,7 @@ type Controller struct {
 	cancel                                                                chan interface{}
 	publishPilotFrequency                                                 int
 	driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic string
+	maxThrottleCtrlTopic                                                  string
 	speedZoneTopic                                                        string
 }
 
@@ -120,7 +122,7 @@ func (c *Controller) readSteering() types.Steering {
 func (c *Controller) Stop() {
 	close(c.cancel)
 	service.StopService("throttle", c.client, c.driveModeTopic, c.rcThrottleTopic, c.steeringTopic,
-		c.throttleFeedbackTopic, c.speedZoneTopic)
+		c.throttleFeedbackTopic, c.maxThrottleCtrlTopic, c.speedZoneTopic)
 }
 
 func (c *Controller) onThrottleFeedback(_ mqtt.Client, message mqtt.Message) {
@@ -131,6 +133,18 @@ func (c *Controller) onThrottleFeedback(_ mqtt.Client, message mqtt.Message) {
 		return
 	}
 	c.brakeCtrl.SetRealThrottle(types.Throttle(msg.GetThrottle()))
+}
+
+func (c *Controller) onMaxThrottleCtrl(_ mqtt.Client, message mqtt.Message) {
+	var msg events.ThrottleMessage
+	err := proto.Unmarshal(message.Payload(), &msg)
+	if err != nil {
+		zap.S().Errorf("unable to unmarshal protobuf %T message: %v", &msg, err)
+		return
+	}
+	c.muDriveMode.Lock()
+	defer c.muDriveMode.Unlock()
+	c.maxThrottle = types.Throttle(msg.GetThrottle())
 }
 
 func (c *Controller) onDriveMode(_ mqtt.Client, message mqtt.Message) {
@@ -216,6 +230,10 @@ var registerCallbacks = func(p *Controller) error {
 		return err
 	}
 	err = service.RegisterCallback(p.client, p.throttleFeedbackTopic, p.onThrottleFeedback)
+	if err != nil {
+		return err
+	}
+	err = service.RegisterCallback(p.client, p.maxThrottleCtrlTopic, p.onMaxThrottleCtrl)
 	if err != nil {
 		return err
 	}

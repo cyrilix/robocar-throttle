@@ -36,9 +36,11 @@ func TestDefaultThrottle(t *testing.T) {
 	rcThrottleTopic := "topic/rcThrottle"
 	steeringTopic := "topic/rcThrottle"
 	throttleFeedbackTopic := "topic/feedback/throttle"
+	maxThrottleCtrlTopic := "topic/max/throttle"
 	speedZoneTopic := "topic/speedZone"
 
-	p := New(nil, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic, speedZoneTopic, 1., 200)
+	p := New(nil, throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
+		maxThrottleCtrlTopic, speedZoneTopic, 1., 200)
 
 	cases := []*struct {
 		name             string
@@ -121,11 +123,13 @@ func TestController_Start(t *testing.T) {
 	driveModeTopic := "topic/driveMode"
 	rcThrottleTopic := "topic/rcThrottle"
 	throttleFeedbackTopic := "topic/feedback/throttle"
+	maxThrottleCtrlTopic := "topic/max/throttle"
 	speedZoneTopic := "topic/speedZone"
 
 	type fields struct {
+		max                   types.Throttle
+		min                   types.Throttle
 		driveMode             events.DriveMode
-		min, max              types.Throttle
 		publishPilotFrequency int
 		brakeCtl              brake.Controller
 	}
@@ -134,6 +138,7 @@ func TestController_Start(t *testing.T) {
 		steering         *events.SteeringMessage
 		rcThrottle       *events.ThrottleMessage
 		throttleFeedback *events.ThrottleMessage
+		maxThrottleCtrl  *events.ThrottleMessage
 	}
 
 	tests := []struct {
@@ -146,9 +151,9 @@ func TestController_Start(t *testing.T) {
 		{
 			name: "On user drive mode, throttle from rc",
 			fields: fields{
-				driveMode:             events.DriveMode_USER,
 				max:                   0.8,
 				min:                   0.3,
+				driveMode:             events.DriveMode_USER,
 				publishPilotFrequency: publishPilotFrequency,
 				brakeCtl:              &brake.DisabledController{},
 			},
@@ -157,6 +162,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 		},
@@ -174,6 +180,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.71999997, Confidence: 1.0},
 		},
@@ -191,6 +198,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.080000006, Confidence: 1.0},
 		},
@@ -208,6 +216,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
 		},
@@ -225,6 +234,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
 		},
@@ -242,6 +252,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.71999997, Confidence: 1.0},
 		},
@@ -259,6 +270,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.9, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.71999997, Confidence: 1.0},
 		},
@@ -276,6 +288,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.1, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.080000006, Confidence: 1.0},
 		},
@@ -293,6 +306,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: -0.8, Confidence: 1.0},
 		},
@@ -310,6 +324,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 0.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.5, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 		},
@@ -327,6 +342,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: -1.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
 		},
@@ -344,6 +360,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: 1.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 0.4, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
 		},
@@ -361,6 +378,7 @@ func TestController_Start(t *testing.T) {
 				steering:         &events.SteeringMessage{Steering: -1.0, Confidence: 1.0},
 				rcThrottle:       &events.ThrottleMessage{Throttle: 0.3, Confidence: 1.0},
 				throttleFeedback: &events.ThrottleMessage{Throttle: 1.0, Confidence: 1.0},
+				maxThrottleCtrl:  &events.ThrottleMessage{Throttle: 0.8, Confidence: 1.0},
 			},
 			want: &events.ThrottleMessage{Throttle: -1.0, Confidence: 1.0},
 		},
@@ -370,7 +388,7 @@ func TestController_Start(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			c := New(nil,
 				throttleTopic, driveModeTopic, rcThrottleTopic, steeringTopic, throttleFeedbackTopic,
-				speedZoneTopic, tt.fields.max,
+				maxThrottleCtrlTopic, speedZoneTopic, tt.fields.max,
 				tt.fields.publishPilotFrequency,
 				WithThrottleProcessor(&SteeringProcessor{
 					minThrottle: tt.fields.min,
@@ -389,6 +407,7 @@ func TestController_Start(t *testing.T) {
 			c.onRCThrottle(nil, testtools.NewFakeMessageFromProtobuf(rcThrottleTopic, tt.msgEvents.rcThrottle))
 			c.onSteering(nil, testtools.NewFakeMessageFromProtobuf(steeringTopic, tt.msgEvents.steering))
 			c.onThrottleFeedback(nil, testtools.NewFakeMessageFromProtobuf(throttleFeedbackTopic, tt.msgEvents.throttleFeedback))
+			c.onMaxThrottleCtrl(nil, testtools.NewFakeMessageFromProtobuf(maxThrottleCtrlTopic, tt.msgEvents.maxThrottleCtrl))
 			waitPublish.Wait()
 
 			var msg events.ThrottleMessage

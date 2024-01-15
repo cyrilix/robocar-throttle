@@ -24,6 +24,7 @@ func main() {
 	var publishPilotFrequency int
 	var brakeConfig string
 	var enableBrake bool
+	var acceleratorFactor float64
 	var enableSpeedZone bool
 	var enableCustomSteeringProcessor bool
 	var configFileSteeringProcessor string
@@ -58,6 +59,7 @@ func main() {
 
 	flag.BoolVar(&enableBrake, "enable-brake-feature", false, "Enable brake to slow car on throttle changes")
 	flag.StringVar(&brakeConfig, "brake-configuration", "", "Json file to use to configure brake adaptation when --enable-brake is `true`")
+	flag.Float64Var(&acceleratorFactor, "accelerator-factor", 1.0, "Accelerator factor when --enable-bake is 'true'")
 
 	flag.BoolVar(&enableCustomSteeringProcessor, "enable-custom-steering-processor", false, "Enable custom steering processor to estimate throttle")
 	flag.StringVar(&configFileSteeringProcessor, "custom-steering-processor-config", "", "Path to json config to parameter custom steering processor")
@@ -100,6 +102,7 @@ func main() {
 	zap.S().Infof("Max throttle                   : %v", maxThrottle)
 	zap.S().Infof("Publish frequency              : %vHz", publishPilotFrequency)
 	zap.S().Infof("Brake enabled                  : %v", enableBrake)
+	zap.S().Infof("Accelerator factor             : %v", acceleratorFactor)
 	zap.S().Infof("CustomSteeringProcessor enabled: %v", enableCustomSteeringProcessor)
 	zap.S().Infof("SpeedZone enabled              : %v", enableSpeedZone)
 	zap.S().Infof("SpeedZone slow throttle        : %v", slowZoneThrottle)
@@ -116,7 +119,7 @@ func main() {
 
 	var brakeCtrl brake.Controller
 	if enableBrake {
-		brakeCtrl = brake.NewCustomControllerWithJsonConfig(brakeConfig)
+		brakeCtrl = brake.NewCustomControllerWithJsonConfigAndAcceleratorFactor(brakeConfig, acceleratorFactor)
 	} else {
 		brakeCtrl = &brake.DisabledController{}
 	}

@@ -20,13 +20,22 @@ func NewCustomControllerWithJsonConfig(filename string) *CustomController {
 	if err != nil {
 		zap.S().Panicf("unable to init brake controller with json config '%s': %v", filename, err)
 	}
-	return &CustomController{cfg: config}
+	return &CustomController{cfg: config, acceleratorFactor: 1.0}
+}
+
+func NewCustomControllerWithJsonConfigAndAcceleratorFactor(filename string, acceleratorFactor float64) *CustomController {
+	config, err := NewConfigFromJson(filename)
+	if err != nil {
+		zap.S().Panicf("unable to init brake controller with json config '%s': %v", filename, err)
+	}
+	return &CustomController{cfg: config, acceleratorFactor: acceleratorFactor}
 }
 
 type CustomController struct {
-	muRealThrottle sync.RWMutex
-	realThrottle   types.Throttle
-	cfg            *Config
+	muRealThrottle    sync.RWMutex
+	realThrottle      types.Throttle
+	cfg               *Config
+	acceleratorFactor float64
 }
 
 func (b *CustomController) SetRealThrottle(t types.Throttle) {
@@ -43,6 +52,13 @@ func (b *CustomController) GetRealThrottle() types.Throttle {
 }
 
 func (b *CustomController) AdjustThrottle(targetThrottle types.Throttle) types.Throttle {
+	if targetThrottle > b.GetRealThrottle() {
+		throttle := b.GetRealThrottle() + (targetThrottle-b.GetRealThrottle())*types.Throttle(b.acceleratorFactor)
+		if throttle > 1.0 {
+			throttle = 1.0
+		}
+		return throttle
+	}
 	return b.cfg.ValueOf(b.GetRealThrottle(), targetThrottle)
 }
 
